@@ -165,7 +165,6 @@ def generate(primer_midi):
 
 
     # GENERATION 
-    # TODO: do not store the file, return processed midi back to caller
     model.eval()
     with torch.set_grad_enabled(False):
   
