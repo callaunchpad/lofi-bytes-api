@@ -23,7 +23,7 @@ SEQUENCE_START = 0
 
 OUTPUT_PATH = "../output"
 
-MODEL_WEIGHTS = '/Users/ericliu/Launchpad/lofi-bytes-api/best_loss_weights.pickle'
+MODEL_WEIGHTS = '../best_loss_weights.pickle'
 
 RPR = ""
 
@@ -81,7 +81,11 @@ def upload_file():
             
             #this is where we call generate on the midi and use model to create the output midi that FRONTEND should play 
             #for the user
+            
             generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            #ML Model Music Generation WORKS!!!
+            #TODO: PASS THE generated_midi to frontend to PLAY the audio
+
             return redirect("http://localhost:5173/home/")
             
     return '''
@@ -160,7 +164,9 @@ def generate(primer_midi):
 
     # Saving primer first
     f_path = os.path.join(OUTPUT_PATH, "primer.mid")
-    decode_midi(primer[:NUM_PRIME].cpu().numpy(), file_path=f_path)
+
+    # saves a pretty_midi at file_path
+    decode_midi(primer[:NUM_PRIME].cpu().numpy(), file_path=f_path) 
 
 
 
@@ -168,10 +174,21 @@ def generate(primer_midi):
     model.eval()
     with torch.set_grad_enabled(False):
   
-        #print("BEAM:", args.beam)
+        
+        #model.generate() returns a MIDI stored as an ARRAY given a primer
         beam_seq = model.generate(primer[:NUM_PRIME], TARGET_SEQ_LENGTH, beam=BEAM)
 
-        return decode_midi(beam_seq[0].cpu().numpy(), file_path=f_path)
+        #save beam_seq in a file for testing purposes
+        f_path = os.path.join(OUTPUT_PATH, "pretty_midi.mid")
+
+        #decode_midi() returns an actual MIDI of class pretty_midi.PrettyMIDI
+        decoded_midi = decode_midi(beam_seq[0].cpu().numpy(), file_path=f_path)
+
+        #THIS SHOULD BE EITHER decoded_midi OR beam_seq
+        #TODO: decoded_midi is actual pretty_midi MIDI file, beam_seq is just an array representing a MIDI
+        #decoded_midi stores more information about instruments and stuff
+        #returning decoded_midi seems more legit
+        return decoded_midi
         
         '''else:
             print("RAND DIST")
