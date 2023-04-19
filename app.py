@@ -76,7 +76,6 @@ def upload_file():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             
-            #TODO: can remove this line, we dont need to store, just need to generate
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             
             #this is where we call generate on the midi and use model to create the output midi that FRONTEND should play 
@@ -84,6 +83,8 @@ def upload_file():
             
             generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             #ML Model Music Generation WORKS!!!
+            #TODO: ASK ALICIA IF GENERATED MUSIC IS OK, SEEMS A LITTLE BAD BECAUSE THE
+            # GENERATED MUSIC SOUNDS BAD --> COULD BE CAUSED BY SETTING strict=false in load_state_dict
             #TODO: PASS THE generated_midi to frontend to PLAY the audio
 
             return redirect("http://localhost:5173/home/")
@@ -160,6 +161,7 @@ def generate(primer_midi):
 
     
     #transformer.encoder.layers.0.self_attn.Er is not being used in state_dict!!??
+    #no self attention error?
     model.load_state_dict(state_dict, strict=False) #does strict=False fuck up the model?
 
     # Saving primer first
