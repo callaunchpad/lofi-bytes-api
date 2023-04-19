@@ -23,7 +23,7 @@ SEQUENCE_START = 0
 
 OUTPUT_PATH = "../output"
 
-MODEL_WEIGHTS = '../model_lofi/results/best_loss_weights.pickle'
+MODEL_WEIGHTS = '/Users/ericliu/Launchpad/lofi-bytes-api/best_loss_weights.pickle'
 
 RPR = ""
 
@@ -42,6 +42,8 @@ D_MODEL = 512
 DIM_FEEDFORWARD = 1024
 
 BEAM = 0
+
+FORCE_CPU = True
 
 ALLOWED_EXTENSIONS = {'mid'}
 
@@ -77,6 +79,8 @@ def upload_file():
             #TODO: can remove this line, we dont need to store, just need to generate
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             
+            #this is where we call generate on the midi and use model to create the output midi that FRONTEND should play 
+            #for the user
             generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect("http://localhost:5173/home/")
             
@@ -100,10 +104,10 @@ def generate(primer_midi):
     ----------
     """
 
-    '''if(args.force_cpu):
+    if(FORCE_CPU):
         use_cuda(False)
         print("WARNING: Forced CPU usage, expect model to perform slower")
-        print("")'''
+        print("")
 
     #os.makedirs(OUTPUT_PATH, exist_ok=True)
 
@@ -133,15 +137,26 @@ def generate(primer_midi):
         return
 
     primer, _  = process_midi(raw_mid, NUM_PRIME, random_seq=False)
-    primer = torch.tensor(primer, dtype=TORCH_LABEL_TYPE, device=get_device())
+    primer = torch.tensor(primer, dtype=TORCH_LABEL_TYPE, device=cpu_device())
 
 
 
     model = MusicTransformer(n_layers=N_LAYERS, num_heads=NUM_HEADS,
                 d_model=D_MODEL, dim_feedforward=DIM_FEEDFORWARD,
-                max_sequence=MAX_SEQUENCE, rpr=RPR).to(get_device())
+                max_sequence=MAX_SEQUENCE, rpr=RPR).to(cpu_device())
+    
+    #model.load_state_dict(torch.load(MODEL_WEIGHTS))
 
-    model.load_state_dict(torch.load(MODEL_WEIGHTS))
+    state_dict = torch.load(MODEL_WEIGHTS, map_location=cpu_device())
+
+    #torch.save(state_dict)
+
+    #print(state_dict)
+    #print(model.state_dict().keys())
+
+    
+    #transformer.encoder.layers.0.self_attn.Er is not being used in state_dict!!??
+    model.load_state_dict(state_dict, strict=False) #does strict=False fuck up the model?
 
     # Saving primer first
     f_path = os.path.join(OUTPUT_PATH, "primer.mid")
