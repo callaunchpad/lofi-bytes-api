@@ -6,7 +6,7 @@ import pretty_midi
 import processor
 
 from werkzeug.utils import secure_filename
-from flask import Flask, jsonify, request, flash, redirect, url_for
+from flask import Flask, jsonify, request, flash, redirect, url_for, send_from_directory
 
 from processor import encode_midi, decode_midi
 
@@ -54,31 +54,34 @@ app.secret_key = 'super secret'
 app.config['UPLOAD_FOLDER'] = '/Users/ericliu/Launchpad/lofi-bytes-api/uploaded_midis'
 
 # current output file is just the generated mario midi from a while ago
-app.config['OUTPUT_FOLDER'] = '/output_midi'
+app.config['OUTPUT_FOLDER'] = './output_midi'
 
 generated_midi = None
 
-# @app.route('/test')
-# def test():
-#     if request.method == 'POST':
-#         # check if the post request has the file part
-#         if 'file' not in request.files:
-#             flash('No file included')
-#             return redirect(request.url)
-#         file = request.files['file']
-#         if file.filename == '':
-#             flash('No selected file')
-#             return redirect(request.url)
+@app.route('/test', methods=['POST'])
+def test():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file included')
+            return redirect(request.url)
         
-#         if file and allowed_file(file.filename):
-#             filename = secure_filename(file.filename)
-#             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#             # generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#             try:
-#                 return send_from_directory(app.config["OUTPUT_FOLDER"], filename='output.mid', as_attachment=True)
-#             except FileNotFoundError:
-#                 return redirect(request.url)
-#     return redirect(request.url)
+        file = request.files['file']
+        print('found file!')
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            print(filename)
+            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            try:
+                return send_from_directory(app.config['OUTPUT_FOLDER'], 'output.mid', mimetype='audio/midi')
+            except FileNotFoundError:
+                return redirect(request.url)
+    return redirect(request.url)
 
 def allowed_file(filename):
     return '.' in filename and \
