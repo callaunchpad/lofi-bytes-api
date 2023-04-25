@@ -53,20 +53,44 @@ app.secret_key = 'super secret'
 
 app.config['UPLOAD_FOLDER'] = '/Users/ericliu/Launchpad/lofi-bytes-api/uploaded_midis'
 
+# current output file is just the generated mario midi from a while ago
+app.config['OUTPUT_FOLDER'] = '/output_midi'
+
 generated_midi = None
+
+# @app.route('/test')
+# def test():
+#     if request.method == 'POST':
+#         # check if the post request has the file part
+#         if 'file' not in request.files:
+#             flash('No file included')
+#             return redirect(request.url)
+#         file = request.files['file']
+#         if file.filename == '':
+#             flash('No selected file')
+#             return redirect(request.url)
+        
+#         if file and allowed_file(file.filename):
+#             filename = secure_filename(file.filename)
+#             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+#             # generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+#             try:
+#                 return send_from_directory(app.config["OUTPUT_FOLDER"], filename='output.mid', as_attachment=True)
+#             except FileNotFoundError:
+#                 return redirect(request.url)
+#     return redirect(request.url)
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/midi', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
         # check if the post request has the file part
-        
         if 'file' not in request.files:
-            flash('No file part')
-            return redirect("https://www.google.com/")
+            flash('No file included')
+            return redirect(request.url)
         file = request.files['file']
         # If the user does not select a file, the browser submits an
         # empty file without a filename.
@@ -246,7 +270,6 @@ def process_midi(raw_mid, max_seq, random_seq):
     # print("tgt:",tgt)
 
     return x, tgt
-
 
 if __name__ == '__main__':
     app.run()
