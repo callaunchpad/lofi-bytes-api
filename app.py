@@ -22,11 +22,11 @@ from utilities.device import cpu_device
 
 SEQUENCE_START = 0
 
-OUTPUT_PATH = "../output"
+OUTPUT_PATH = "./output_midi"
 
-MODEL_WEIGHTS = '../best_loss_weights.pickle'
+MODEL_WEIGHTS = './weights.pickle'
 
-RPR = ""
+RPR = True
 
 TARGET_SEQ_LENGTH = 1023
 
@@ -44,7 +44,7 @@ DIM_FEEDFORWARD = 1024
 
 BEAM = 0
 
-FORCE_CPU = True
+FORCE_CPU = False
 
 ALLOWED_EXTENSIONS = {'mid'}
 
@@ -52,7 +52,7 @@ app = Flask(__name__)
 
 app.secret_key = 'super secret'
 
-app.config['UPLOAD_FOLDER'] = '/Users/ericliu/Launchpad/lofi-bytes-api/uploaded_midis'
+app.config['UPLOAD_FOLDER'] = './uploaded_midis'
 
 # current output file is just the generated mario midi from a while ago
 app.config['OUTPUT_FOLDER'] = './output_midi'
@@ -60,6 +60,33 @@ app.config['OUTPUT_FOLDER'] = './output_midi'
 CORS(app)
 
 generated_midi = None
+
+if(FORCE_CPU):
+    use_cuda(False)
+    print("WARNING: Forced CPU usage, expect model to perform slower")
+    print("")
+else:
+    use_cuda(True)
+
+model = MusicTransformer(n_layers=N_LAYERS, num_heads=NUM_HEADS,
+                d_model=D_MODEL, dim_feedforward=DIM_FEEDFORWARD,
+                max_sequence=MAX_SEQUENCE, rpr=RPR).to(get_device())
+    
+    #model.load_state_dict(torch.load(MODEL_WEIGHTS))
+
+state_dict = torch.load(MODEL_WEIGHTS, map_location=get_device())
+
+#torch.save(state_dict)
+
+#print(state_dict)
+#print(model.state_dict().keys())
+
+
+#transformer.encoder.layers.0.self_attn.Er is not being used in state_dict!!??
+#no self attention error?
+
+model.load_state_dict(state_dict) #does strict=False fuck up the model?
+
 
 @app.route('/test', methods=['POST', 'GET'])
 #@cross_origin()
@@ -81,8 +108,8 @@ def test():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             print(filename)
-            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            # generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            generated_midi = generate(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             try:
                 return send_from_directory(app.config['OUTPUT_FOLDER'], 'output.mid', mimetype='audio/midi')
             except FileNotFoundError:
@@ -144,10 +171,6 @@ def generate(primer_midi):
     ----------
     """
 
-    if(FORCE_CPU):
-        use_cuda(False)
-        print("WARNING: Forced CPU usage, expect model to perform slower")
-        print("")
 
     #os.makedirs(OUTPUT_PATH, exist_ok=True)
 
@@ -177,27 +200,9 @@ def generate(primer_midi):
         return
 
     primer, _  = process_midi(raw_mid, NUM_PRIME, random_seq=False)
-    primer = torch.tensor(primer, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    primer = torch.tensor(primer, dtype=TORCH_LABEL_TYPE, device=get_device())
 
 
-
-    model = MusicTransformer(n_layers=N_LAYERS, num_heads=NUM_HEADS,
-                d_model=D_MODEL, dim_feedforward=DIM_FEEDFORWARD,
-                max_sequence=MAX_SEQUENCE, rpr=RPR).to(cpu_device())
-    
-    #model.load_state_dict(torch.load(MODEL_WEIGHTS))
-
-    state_dict = torch.load(MODEL_WEIGHTS, map_location=cpu_device())
-
-    #torch.save(state_dict)
-
-    #print(state_dict)
-    #print(model.state_dict().keys())
-
-    
-    #transformer.encoder.layers.0.self_attn.Er is not being used in state_dict!!??
-    #no self attention error?
-    model.load_state_dict(state_dict, strict=False) #does strict=False fuck up the model?
 
     # Saving primer first
     f_path = os.path.join(OUTPUT_PATH, "primer.mid")
@@ -216,7 +221,7 @@ def generate(primer_midi):
         beam_seq = model.generate(primer[:NUM_PRIME], TARGET_SEQ_LENGTH, beam=BEAM)
 
         #save beam_seq in a file for testing purposes
-        f_path = os.path.join(OUTPUT_PATH, "pretty_midi.mid")
+        f_path = os.path.join(OUTPUT_PATH, "output.mid")
 
         #decode_midi() returns an actual MIDI of class pretty_midi.PrettyMIDI
         decoded_midi = decode_midi(beam_seq[0].cpu().numpy(), file_path=f_path)
@@ -246,8 +251,8 @@ def process_midi(raw_mid, max_seq, random_seq):
     ----------
     """
 
-    x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
-    tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=cpu_device())
+    x   = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
+    tgt = torch.full((max_seq, ), TOKEN_PAD, dtype=TORCH_LABEL_TYPE, device=get_device())
 
     raw_len     = len(raw_mid)
     full_seq    = max_seq + 1 # Performing seq2seq
