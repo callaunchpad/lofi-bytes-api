@@ -6,10 +6,11 @@ import pretty_midi
 import processor
 
 from werkzeug.utils import secure_filename
-from flask import Flask, jsonify, request, flash, redirect, url_for, send_from_directory
+from flask import Flask, jsonify, request, flash, redirect, url_for, send_from_directory, abort
 
 from processor import encode_midi, decode_midi
 
+from flask_cors import CORS, cross_origin
 from utilities.argument_funcs import parse_generate_args, print_generate_args
 from model.music_transformer import MusicTransformer
 from torch.utils.data import DataLoader
@@ -56,21 +57,26 @@ app.config['UPLOAD_FOLDER'] = '/Users/ericliu/Launchpad/lofi-bytes-api/uploaded_
 # current output file is just the generated mario midi from a while ago
 app.config['OUTPUT_FOLDER'] = './output_midi'
 
+CORS(app)
+
 generated_midi = None
 
-@app.route('/test', methods=['POST'])
+@app.route('/test', methods=['POST', 'GET'])
+#@cross_origin()
 def test():
     if request.method == 'POST':
+        print(request.files)
         # check if the post request has the file part
+        print(request)
         if 'file' not in request.files:
-            flash('No file included')
-            return redirect(request.url)
+            abort(403, 'no file included')
+            #return redirect(request.url)
         
         file = request.files['file']
         print('found file!')
         if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
+            abort(401, 'no selected file')
+            #return redirect(request.url)
         
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
@@ -80,8 +86,10 @@ def test():
             try:
                 return send_from_directory(app.config['OUTPUT_FOLDER'], 'output.mid', mimetype='audio/midi')
             except FileNotFoundError:
-                return redirect(request.url)
-    return redirect(request.url)
+                print('bruh')
+                #return redirect(request.url)
+    abort(400, 'No MIDI file included in the request.')
+    #return redirect(request.url)
 
 def allowed_file(filename):
     return '.' in filename and \
